@@ -7,10 +7,14 @@ from typing import Awaitable, Any
 import uuid
 from json.decoder import JSONDecoder
 from json.encoder import JSONEncoder
+from enum import Enum
 
-JSON = 0
-STRING = 1
-INT = 2
+class DecodeType(Enum):
+    JSON = 0
+    STRING = 1
+    INT = 2
+
+
 _id = uuid.getnode()
 
 async def run_sequence(*functions: Awaitable[Any]) -> None:
@@ -58,7 +62,7 @@ class IOTSensorDHT22:
     async def query_configuration(self):
         if self.sensor_config_topic is not None:
             print("query config...")
-            config = await self._query(self.sensor_config_topic, JSON)
+            config = await self._query(self.sensor_config_topic, DecodeType.JSON)
             print(f"config: {config}")
             self.sensor_interval_topic = config["topic_interval"]
             self.sensor_name = config["name"]
@@ -70,21 +74,21 @@ class IOTSensorDHT22:
     async def query_interval(self):
         if self.sensor_interval_topic is not None:
             print("query interval...")
-            new_interval = await self._query(self.sensor_interval_topic, INT)
+            new_interval = await self._query(self.sensor_interval_topic, DecodeType.INT)
             if new_interval != self.sensor_interval:
                 print(f"new interval {new_interval} - old: {self.sensor_interval} - assigning new value")
                 self.sensor_interval = new_interval
                 
     async def query_time(self):
-        self.time = await self._query(self.time_topic, STRING)
+        self.time = await self._query(self.time_topic, DecodeType.STRING)
         print(f"queried time: {self.time}")
 
-    async def _query(self, topic, answer_type):
-        if answer_type == JSON:
+    async def _query(self, topic, decode_type):
+        if decode_type == DecodeType.JSON:
             return JSONDecoder().decode(bytes.decode(subscribe.simple(topic, hostname=self.mqtt_server).payload))
-        elif answer_type == INT:
+        elif decode_type == DecodeType.INT:
             return int(subscribe.simple(topic, hostname=self.mqtt_server).payload)
-        elif answer_type == STRING:
+        elif decode_type == DecodeType.STRING:
             return str(bytes.decode(subscribe.simple(topic, hostname=self.mqtt_server).payload))
         else:
             raise TypeError
@@ -129,3 +133,6 @@ if __name__ == "__main__":
         IOTSensorDHT22(
             mqtt_server="192.168.188.37",  #
             sensor_config_topic = f"/sensor/config/{_id}").run()
+
+
+
